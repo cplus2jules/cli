@@ -6,35 +6,55 @@ if (process.argv.length < 3) {
   process.exit(1);
 }
 
-const targetPath = resolve(process.argv[2]);
+let targetPath = resolve(process.argv[2]);
+
 if (!existsSync(targetPath)) {
   console.error(`Error: File not found at ${targetPath}`);
   process.exit(1);
 }
 
+// If user points to a folder, try to find a valid bundle inside
+if (existsSync(targetPath) && !targetPath.endsWith('.js')) {
+    const candidate1 = resolve(targetPath, 'xpui.js');
+    const candidate2 = resolve(targetPath, 'xpui-snapshot.js');
+    if (existsSync(candidate1)) targetPath = candidate1;
+    else if (existsSync(candidate2)) targetPath = candidate2;
+    else {
+        console.error(`Error: Could not find xpui.js or xpui-snapshot.js in ${targetPath}`);
+        process.exit(1);
+    }
+}
+
 const bundle = readFileSync(targetPath, 'utf8');
+console.log(`Analyzing bundle: ${targetPath}...`);
 
 // Known stable structural strings we can regex match
 const patterns = {
-  'main-view': /Root__main-view/,
-  'now-playing-bar': /now-playing-widget/,
-  'sidebar': /LeftSidebar/,
-  'topbar': /main-topBar/,
-  'right-sidebar': /Root__right-sidebar/,
-  'lyrics-cinema': /lyrics-cinema/,
-  'buddy-feed': /BuddyFeed/
+  'main-view':       /Root__main-view|main-view-container/,
+  'now-playing-bar': /Root__now-playing-bar|now-playing-widget|now-playing-bar/,
+  'sidebar':         /Desktop_LeftSidebar_Id|LeftSidebar/,
+  'topbar':          /main-topBar-container|Root__top-bar|topbar/,
+  'right-sidebar':   /Root__right-sidebar/,
+  'lyrics-cinema':   /lyrics-cinema/,
+  'buddy-feed':      /BuddyFeed|getBuddyFeedAPI/
 };
 
 const found = {};
 
 for (const [name, pattern] of Object.entries(patterns)) {
-  // We match standard CSS classes attached to React components logic like:
-  // "className:"Root__main-view"" or ".Root__main-view {" or similar react-hash artifacts
-  const match = bundle.match(new RegExp(`([\\w-]+${pattern.source}[\\w-]*)`, 'g'));
+  const match = bundle.match(new RegExp(`([\\w-]*${pattern.source}[\\w-]*)`, 'g'));
   if (match) {
-    found[name] = '.' + match[0];
+    // 1. Prioritize matches starting with "Root__"
+    // 2. Otherwise, pick the SHORTEST match (usually the top-level container)
+    const sorted = match.sort((a, b) => {
+        const aRoot = a.startsWith('Root__');
+        const bRoot = b.startsWith('Root__');
+        if (aRoot && !bRoot) return -1;
+        if (!aRoot && bRoot) return 1;
+        return a.length - b.length;
+    });
+    found[name] = '.' + sorted[0];
   } else {
-    // If we can't find a selector, explicitly set it to null so maintainers see what's missing
     found[name] = null;
   }
 }

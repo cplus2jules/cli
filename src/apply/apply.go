@@ -61,28 +61,37 @@ func AdditionalOptions(appsFolderPath string, flags Flag) {
 		spotifyPatch, _ = strconv.Atoi(verParts[2])
 	}
 
-	filesToModified[filepath.Join(appsFolderPath, "xpui", "xpui.js")] = append(filesToModified[filepath.Join(appsFolderPath, "xpui", "xpui.js")], insertCustomApp)
-	if flags.SpotifyVer != "" {
-		if sm, _ := utils.LoadSelectorMap(flags.SpotifyVer); sm != nil {
-			bridgeScript := GenerateBridgeScript(sm)
-			filesToModified[filepath.Join(appsFolderPath, "xpui", "xpui.js")] = append(
-				[]func(path string, flags Flag){
-					func(jsPath string, f Flag) {
-						utils.ModifyFile(jsPath, func(content string) string {
-							return InsertBridgeScript(content, bridgeScript)
-						})
-					},
-				},
-				filesToModified[filepath.Join(appsFolderPath, "xpui", "xpui.js")]...,
-			)
+	// Standard Modifiers for xpui.js / xpui-snapshot.js
+	for _, name := range []string{"xpui.js", "xpui-snapshot.js"} {
+		file := filepath.Join(appsFolderPath, "xpui", name)
+		if _, err := os.Stat(file); err == nil {
+			filesToModified[file] = append(filesToModified[file], insertCustomApp)
+			if spotifyMajor >= 1 && spotifyMinor >= 2 && spotifyPatch >= 57 {
+				filesToModified[file] = append(filesToModified[file], insertExpFeatures)
+			}
 		}
 	}
-	if spotifyMajor >= 1 && spotifyMinor >= 2 && spotifyPatch >= 57 {
-		filesToModified[filepath.Join(appsFolderPath, "xpui", "xpui.js")] = append(filesToModified[filepath.Join(appsFolderPath, "xpui", "xpui.js")], insertExpFeatures)
-	} else {
+
+	// For older versions
+	if !(spotifyMajor >= 1 && spotifyMinor >= 2 && spotifyPatch >= 57) {
 		filesToModified[filepath.Join(appsFolderPath, "xpui", "vendor~xpui.js")] = []func(string, Flag){insertExpFeatures}
 	}
 
+	// Bridge Script Injection
+	if flags.SpotifyVer != "" {
+		if sm, _ := utils.LoadSelectorMap(flags.SpotifyVer); sm != nil {
+			bridgeScript := GenerateBridgeScript(sm)
+			for _, name := range []string{"xpui.js", "xpui-snapshot.js"} {
+				file := filepath.Join(appsFolderPath, "xpui", name)
+				if _, err := os.Stat(file); err == nil {
+					utils.ModifyFile(file, func(content string) string {
+						return InsertBridgeScript(content, bridgeScript)
+					})
+				}
+			}
+		}
+	}
+	
 	for file, calls := range filesToModified {
 		if _, err := os.Stat(file); os.IsNotExist(err) {
 			continue
