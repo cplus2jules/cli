@@ -81,6 +81,7 @@ func Apply(spicetifyVersion string) {
 		HomeConfig:           featureSection.Key("home_config").MustBool(false),
 		ExpFeatures:          featureSection.Key("experimental_features").MustBool(false),
 		SpicetifyVer:         backupSection.Key("with").MustString(""),
+		SpotifyVer:           backupSection.Key("version").MustString(""),
 	})
 	spinner.Success("Applied additional modifications")
 
@@ -129,7 +130,7 @@ func refreshThemeCSS() {
 	if !injectCSS {
 		theme = ""
 	}
-	apply.UserCSS(appDestPath, theme, scheme)
+	apply.UserCSS(appDestPath, theme, scheme, backupSection.Key("version").MustString(""))
 
 	var configJson spicetifyConfigJson
 	configJson.ThemeName = settingSection.Key("current_theme").MustString("")

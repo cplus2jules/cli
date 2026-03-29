@@ -62,6 +62,21 @@ func AdditionalOptions(appsFolderPath string, flags Flag) {
 	}
 
 	filesToModified[filepath.Join(appsFolderPath, "xpui", "xpui.js")] = append(filesToModified[filepath.Join(appsFolderPath, "xpui", "xpui.js")], insertCustomApp)
+	if flags.SpotifyVer != "" {
+		if sm, _ := utils.LoadSelectorMap(flags.SpotifyVer); sm != nil {
+			bridgeScript := GenerateBridgeScript(sm)
+			filesToModified[filepath.Join(appsFolderPath, "xpui", "xpui.js")] = append(
+				[]func(path string, flags Flag){
+					func(jsPath string, f Flag) {
+						utils.ModifyFile(jsPath, func(content string) string {
+							return InsertBridgeScript(content, bridgeScript)
+						})
+					},
+				},
+				filesToModified[filepath.Join(appsFolderPath, "xpui", "xpui.js")]...,
+			)
+		}
+	}
 	if spotifyMajor >= 1 && spotifyMinor >= 2 && spotifyPatch >= 57 {
 		filesToModified[filepath.Join(appsFolderPath, "xpui", "xpui.js")] = append(filesToModified[filepath.Join(appsFolderPath, "xpui", "xpui.js")], insertExpFeatures)
 	} else {
@@ -100,13 +115,13 @@ func AdditionalOptions(appsFolderPath string, flags Flag) {
 // UserCSS creates colors.css user.css files in "xpui".
 // To not use custom css, set `themeFolder` to blank string
 // To use default color scheme, set `scheme` to `nil`
-func UserCSS(appsFolderPath, themeFolder string, scheme map[string]string) {
+func UserCSS(appsFolderPath, themeFolder string, scheme map[string]string, spotifyVer string) {
 	colorsDest := filepath.Join(appsFolderPath, "xpui", "colors.css")
 	if err := os.WriteFile(colorsDest, []byte(getColorCSS(scheme)), 0700); err != nil {
 		utils.Fatal(err)
 	}
 	cssDest := filepath.Join(appsFolderPath, "xpui", "user.css")
-	if err := os.WriteFile(cssDest, []byte(getUserCSS(themeFolder)), 0700); err != nil {
+	if err := os.WriteFile(cssDest, []byte(getUserCSS(themeFolder, spotifyVer)), 0700); err != nil {
 		utils.Fatal(err)
 	}
 }
@@ -214,7 +229,7 @@ func htmlMod(htmlPath string, flags Flag) {
 	})
 }
 
-func getUserCSS(themeFolder string) string {
+func getUserCSS(themeFolder string, spotifyVer string) string {
 	if len(themeFolder) == 0 {
 		return ""
 	}
@@ -231,7 +246,13 @@ func getUserCSS(themeFolder string) string {
 		return ""
 	}
 
-	return string(content)
+	sm, _ := utils.LoadSelectorMap(spotifyVer)
+	aliasBlock := GenerateCSSVariableAliasBlock(sm)
+	if aliasBlock != "" {
+		aliasBlock = "/* spicetify-bridge-vars */\n" + aliasBlock + "\n/* end-spicetify-bridge-vars */\n\n"
+	}
+
+	return aliasBlock + string(content)
 }
 
 func getColorCSS(scheme map[string]string) string {

@@ -1,0 +1,22 @@
+{
+  "version": "1.2.30",
+  "spotifyVersionRange": "1.2.30.0 - 1.2.30.9999",
+  "selectors": {
+    "main-view": ".Root__main-view",
+    "now-playing-bar": ".now-playing-widget",
+    "sidebar": ".LeftSidebar",
+    "topbar": ".main-topBar-container",
+    "right-sidebar": ".Root__right-sidebar",
+    "lyrics-cinema": ".lyrics-cinema",
+    "buddy-feed": ".BuddyFeed"
+  },
+  "cssVarAliases": {
+    "--spice-main": "--encore-base-color-black",
+    "--spice-sidebar": "--encore-tinted-base-color",
+    "--spice-player": "--encore-base-color-black",
+    "--spice-text": "--encore-text-color-on-dark-base",
+    "--spice-subtext": "--encore-text-color-on-dark-subdued",
+    "--spice-button": "--encore-essential-positive-set-color",
+    "--spice-button-active": "--encore-essential-positive-set-highlight-color"
+  }
+}
